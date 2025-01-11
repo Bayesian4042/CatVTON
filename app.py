@@ -1,7 +1,6 @@
 import argparse
 import os
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
 import os
 import random
 import gradio as gr
@@ -9,7 +8,6 @@ import numpy as np
 import torch
 from diffusers.image_processor import VaeImageProcessor
 from huggingface_hub import snapshot_download
-from PIL import Image
 import gc
 from model.cloth_masker import AutoMasker, vis_mask
 from model.pipeline import CatVTONPipeline
@@ -277,7 +275,7 @@ def generate_person_image(prompt):
 
     print("Running denoising.")
     height, width = 1024, 1024
-    
+
     images = pipeline(
         prompt_embeds=prompt_embeds,
         pooled_prompt_embeds=pooled_prompt_embeds,
@@ -289,7 +287,6 @@ def generate_person_image(prompt):
     ).images
     
     # Add current time to make each image unique
-    from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Create output directory if it doesn't exist
