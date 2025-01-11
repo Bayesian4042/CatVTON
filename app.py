@@ -13,8 +13,8 @@ import gc
 from model.cloth_masker import AutoMasker, vis_mask
 from model.pipeline import CatVTONPipeline
 from utils import init_weight_dtype, resize_and_crop, resize_and_padding
-from transformers import T5EncoderModel
-from diffusers import FluxPipeline, FluxTransformer2DModel
+# from transformers import T5EncoderModel
+# from diffusers import FluxPipeline, FluxTransformer2DModel
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
@@ -114,24 +114,24 @@ def flush():
 
 flush()
 
-ckpt_4bit_id = "sayakpaul/flux.1-dev-nf4-pkg"
+# ckpt_4bit_id = "sayakpaul/flux.1-dev-nf4-pkg"
 
-text_encoder_2_4bit = T5EncoderModel.from_pretrained(
-    ckpt_4bit_id,
-    subfolder="text_encoder_2",
-)
+# text_encoder_2_4bit = T5EncoderModel.from_pretrained(
+#     ckpt_4bit_id,
+#     subfolder="text_encoder_2",
+# )
 
-# image gen pipeline
-ckpt_id = "black-forest-labs/FLUX.1-dev"
+# # image gen pipeline
+# ckpt_id = "black-forest-labs/FLUX.1-dev"
 
-image_gen_pipeline = FluxPipeline.from_pretrained(
-    ckpt_id,
-    text_encoder_2=text_encoder_2_4bit,
-    transformer=None,
-    vae=None,
-    torch_dtype=torch.float16,
-)
-image_gen_pipeline.enable_model_cpu_offload()
+# image_gen_pipeline = FluxPipeline.from_pretrained(
+#     ckpt_id,
+#     text_encoder_2=text_encoder_2_4bit,
+#     transformer=None,
+#     vae=None,
+#     torch_dtype=torch.float16,
+# )
+# image_gen_pipeline.enable_model_cpu_offload()
 
 # Pipeline
 pipeline = CatVTONPipeline(
@@ -240,64 +240,64 @@ def random_color():
         random.randint(0, 255)
     )
 
-def generate_person_image(prompt):
-    """
-    Creates a test image based on the prompt.
-    Returns the path to the generated image.
-    """
-    # Create a new image with a random background color
-    prompt = "An indian woman standing still and wearing white shirt and blue jeans"
+# def generate_person_image(prompt):
+#     """
+#     Creates a test image based on the prompt.
+#     Returns the path to the generated image.
+#     """
+#     # Create a new image with a random background color
+#     prompt = "An indian woman standing still and wearing white shirt and blue jeans"
 
-    with torch.no_grad():
-        print("Encoding prompts.")
-        prompt_embeds, pooled_prompt_embeds, text_ids = image_gen_pipeline.encode_prompt(
-            prompt=prompt, prompt_2=None, max_sequence_length=256
-        )
+#     with torch.no_grad():
+#         print("Encoding prompts.")
+#         prompt_embeds, pooled_prompt_embeds, text_ids = image_gen_pipeline.encode_prompt(
+#             prompt=prompt, prompt_2=None, max_sequence_length=256
+#         )
 
-    image_gen_pipeline = image_gen_pipeline.to("cpu")
-    del image_gen_pipeline
+#     image_gen_pipeline = image_gen_pipeline.to("cpu")
+#     del image_gen_pipeline
 
-    flush()
+#     flush()
 
-    print(f"prompt_embeds shape: {prompt_embeds.shape}")
-    print(f"pooled_prompt_embeds shape: {pooled_prompt_embeds.shape}")
-    # Add the prompt text to the image
-    transformer_4bit = FluxTransformer2DModel.from_pretrained(ckpt_4bit_id, subfolder="transformer")
-    image_gen_pipeline = FluxPipeline.from_pretrained(
-        ckpt_id,
-        text_encoder=None,
-        text_encoder_2=None,
-        tokenizer=None,
-        tokenizer_2=None,
-        transformer=transformer_4bit,
-        torch_dtype=torch.float16,
-    )
-    image_gen_pipeline.enable_model_cpu_offload()
+#     print(f"prompt_embeds shape: {prompt_embeds.shape}")
+#     print(f"pooled_prompt_embeds shape: {pooled_prompt_embeds.shape}")
+#     # Add the prompt text to the image
+#     transformer_4bit = FluxTransformer2DModel.from_pretrained(ckpt_4bit_id, subfolder="transformer")
+#     image_gen_pipeline = FluxPipeline.from_pretrained(
+#         ckpt_id,
+#         text_encoder=None,
+#         text_encoder_2=None,
+#         tokenizer=None,
+#         tokenizer_2=None,
+#         transformer=transformer_4bit,
+#         torch_dtype=torch.float16,
+#     )
+#     image_gen_pipeline.enable_model_cpu_offload()
 
-    print("Running denoising.")
-    height, width = 1024, 1024
+#     print("Running denoising.")
+#     height, width = 1024, 1024
 
-    images = pipeline(
-        prompt_embeds=prompt_embeds,
-        pooled_prompt_embeds=pooled_prompt_embeds,
-        num_inference_steps=50,
-        guidance_scale=5.5,
-        height=height,
-        width=width,
-        output_type="pil",
-    ).images
+#     images = pipeline(
+#         prompt_embeds=prompt_embeds,
+#         pooled_prompt_embeds=pooled_prompt_embeds,
+#         num_inference_steps=50,
+#         guidance_scale=5.5,
+#         height=height,
+#         width=width,
+#         output_type="pil",
+#     ).images
     
-    # Add current time to make each image unique
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     # Add current time to make each image unique
+#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Create output directory if it doesn't exist
-    os.makedirs('generated_images', exist_ok=True)
+#     # Create output directory if it doesn't exist
+#     os.makedirs('generated_images', exist_ok=True)
     
-    # Save the image
-    output_path = f'generated_images/generated_{timestamp}.png'
-    images[0].save(output_path)
+#     # Save the image
+#     output_path = f'generated_images/generated_{timestamp}.png'
+#     images[0].save(output_path)
     
-    return output_path
+#     return output_path
 
 def app_gradio():
     with gr.Blocks(title="Text-to-Try-On") as demo:
@@ -362,11 +362,11 @@ def app_gradio():
                 result_image = gr.Image(interactive=False, label="Final Result")
 
         # Connect the generation button
-        generate_button.click(
-            generate_person_image,
-            inputs=[text_prompt],
-            outputs=[person_image]
-        )
+        # generate_button.click(
+        #     generate_person_image,
+        #     inputs=[text_prompt],
+        #     outputs=[person_image]
+        # )
 
         # Connect the try-on button
         tryon_button.click(
