@@ -10,10 +10,12 @@ import torch
 from diffusers.image_processor import VaeImageProcessor
 from huggingface_hub import snapshot_download
 from PIL import Image
-
+import gc
 from model.cloth_masker import AutoMasker, vis_mask
 from model.pipeline import CatVTONPipeline
 from utils import init_weight_dtype, resize_and_crop, resize_and_padding
+from transformers import T5EncoderModel
+from diffusers import FluxPipeline, FluxTransformer2DModel
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
@@ -104,6 +106,34 @@ def image_grid(imgs, rows, cols):
 
 args = parse_args()
 repo_path = snapshot_download(repo_id=args.resume_path)
+
+def flush():
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+
+flush()
+
+ckpt_4bit_id = "sayakpaul/flux.1-dev-nf4-pkg"
+
+text_encoder_2_4bit = T5EncoderModel.from_pretrained(
+    ckpt_4bit_id,
+    subfolder="text_encoder_2",
+)
+
+# image gen pipeline
+ckpt_id = "black-forest-labs/FLUX.1-dev"
+
+image_gen_pipeline = FluxPipeline.from_pretrained(
+    ckpt_id,
+    text_encoder_2=text_encoder_2_4bit,
+    transformer=None,
+    vae=None,
+    torch_dtype=torch.float16,
+)
+image_gen_pipeline.enable_model_cpu_offload()
+
 # Pipeline
 pipeline = CatVTONPipeline(
     base_ckpt=args.base_model_path,
@@ -217,13 +247,46 @@ def generate_person_image(prompt):
     Returns the path to the generated image.
     """
     # Create a new image with a random background color
-    width, height = 512, 512
-    image = Image.new('RGB', (width, height), random_color())
-    draw = ImageDraw.Draw(image)
-    
+    prompt = "An indian woman standing still and wearing white shirt and blue jeans"
+
+    with torch.no_grad():
+        print("Encoding prompts.")
+        prompt_embeds, pooled_prompt_embeds, text_ids = pipeline.encode_prompt(
+            prompt=prompt, prompt_2=None, max_sequence_length=256
+        )
+
+    pipeline = pipeline.to("cpu")
+    del pipeline
+
+    flush()
+
+    print(f"prompt_embeds shape: {prompt_embeds.shape}")
+    print(f"pooled_prompt_embeds shape: {pooled_prompt_embeds.shape}")
     # Add the prompt text to the image
-    draw.text((20, 20), f"Prompt: {prompt}", fill='white')
-    draw.text((20, 50), "Test Generated Image", fill='white')
+    transformer_4bit = FluxTransformer2DModel.from_pretrained(ckpt_4bit_id, subfolder="transformer")
+    pipeline = FluxPipeline.from_pretrained(
+        ckpt_id,
+        text_encoder=None,
+        text_encoder_2=None,
+        tokenizer=None,
+        tokenizer_2=None,
+        transformer=transformer_4bit,
+        torch_dtype=torch.float16,
+    )
+    pipeline.enable_model_cpu_offload()
+
+    print("Running denoising.")
+    height, width = 1024, 1024
+    
+    images = pipeline(
+        prompt_embeds=prompt_embeds,
+        pooled_prompt_embeds=pooled_prompt_embeds,
+        num_inference_steps=50,
+        guidance_scale=5.5,
+        height=height,
+        width=width,
+        output_type="pil",
+    ).images
     
     # Add current time to make each image unique
     from datetime import datetime
@@ -234,7 +297,7 @@ def generate_person_image(prompt):
     
     # Save the image
     output_path = f'generated_images/generated_{timestamp}.png'
-    image.save(output_path)
+    images[0].save(output_path)
     
     return output_path
 
