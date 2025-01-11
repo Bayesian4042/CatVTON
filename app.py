@@ -1,6 +1,7 @@
 import argparse
 import os
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
 import os
 import random
 import gradio as gr
@@ -249,12 +250,12 @@ def generate_person_image(prompt):
 
     with torch.no_grad():
         print("Encoding prompts.")
-        prompt_embeds, pooled_prompt_embeds, text_ids = pipeline.encode_prompt(
+        prompt_embeds, pooled_prompt_embeds, text_ids = image_gen_pipeline.encode_prompt(
             prompt=prompt, prompt_2=None, max_sequence_length=256
         )
 
-    pipeline = pipeline.to("cpu")
-    del pipeline
+    image_gen_pipeline = image_gen_pipeline.to("cpu")
+    del image_gen_pipeline
 
     flush()
 
@@ -262,7 +263,7 @@ def generate_person_image(prompt):
     print(f"pooled_prompt_embeds shape: {pooled_prompt_embeds.shape}")
     # Add the prompt text to the image
     transformer_4bit = FluxTransformer2DModel.from_pretrained(ckpt_4bit_id, subfolder="transformer")
-    pipeline = FluxPipeline.from_pretrained(
+    image_gen_pipeline = FluxPipeline.from_pretrained(
         ckpt_id,
         text_encoder=None,
         text_encoder_2=None,
@@ -271,7 +272,7 @@ def generate_person_image(prompt):
         transformer=transformer_4bit,
         torch_dtype=torch.float16,
     )
-    pipeline.enable_model_cpu_offload()
+    image_gen_pipeline.enable_model_cpu_offload()
 
     print("Running denoising.")
     height, width = 1024, 1024
